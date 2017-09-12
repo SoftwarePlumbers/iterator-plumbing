@@ -3,6 +3,9 @@ const expect = chai.expect;
 const Stream = require('../src/stream');
 
 const TEST_DATA = [ 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 ];
+const TEST_MAP1 = [ [ 'foo', 'bar' ], [ 'dinkum', 'thinkum'], ['wyoming','knot'], ['dick','seaton'] ];
+const TEST_MAP2 = [ { name: 'peter', grade: 'A'}, { name: 'paul', grade: 'B'}, { name: 'jonathan', grade: 'D'} ];
+
 
 describe('Stream', () => {
 
@@ -136,6 +139,11 @@ describe('Stream', () => {
 	it('supports some', ()=>{
 		expect(Stream.of(TEST_DATA).some(e => e === 13)).to.be.true;
 		expect(Stream.of(TEST_DATA).some(e => e === 6)).to.be.false;
+	});
+
+	it('converts items to Map', ()=>{
+		expect(Array.from(Stream.of(TEST_MAP1).toMap().entries())).to.deep.equal(TEST_MAP1);
+		expect(Array.from(Stream.of(TEST_MAP2).toMap(item=>item.name, item=>item.grade).entries())).to.deep.equal(TEST_MAP2.map(({name,grade})=>[name,grade]));
 	});
 
 });

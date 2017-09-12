@@ -1,5 +1,3 @@
-
-
 /** Base stream clase that provides core stream operations.
 *
 * A stream is an iterator (it implements next()) with bells on. Various utility methods are provided
@@ -193,6 +191,20 @@ class BaseStream {
 		let array = [];
 		for (let item = this.next(); !item.done; item=this.next()) array.push(item.value);
 		return array;
+	}
+
+	/** Convert stream to map
+	*
+	* @param key {Function} function to convert item to key - defaults to [k,v]=>k
+	* @param value {Function} function to convert item to value - defaults to [k,v]=>v
+	* @return a new Map with specified keys and values from stream
+	*/
+	toMap(key = e=>e[0], value = e=>e[1]) {
+		let map = new Map();
+		for (let item = this.next(); !item.done; item=this.next()) {
+			map.set(key(item.value),value(item.value));
+		}
+		return map;		
 	}
 }
 

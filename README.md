@@ -1,5 +1,3 @@
-
-
 # ![Software Plumbers](http://docs.softwareplumbers.com/common/img/SquareIdent-160.png) Iterator Plumbing
 
 Iterator utilities, providing many standard array functions without the neeed to create an array.
