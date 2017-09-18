@@ -1,3 +1,5 @@
+'use strict';
+
 /** Base stream clase that provides core stream operations.
 *
 * A stream is an iterator (it implements next()) with bells on. Various utility methods are provided
@@ -75,6 +77,14 @@ class BaseStream {
 		return -1;
 	}
 
+	/** Flatten a nested structure by iterating over the stream returned by stream_accessor for each item in this stream
+	* @param stream_accessor {Function} function that returns a stream given an object in this stream
+	* @returns stream that iterates over every object in every stream returned by stream_accessor.
+	*/
+	flatten(stream_accessor) {
+		return new FlattenedStream(this, stream_accessor);
+	}
+
 	/** Execute callback for every element in stream
 	*
 	* @param callback {Function} function to execute
@@ -132,13 +142,13 @@ class BaseStream {
 
 	/** Add an element to a stream
 	*
-	* Equivalent to this.concat(Stream.of(arguments))
+	* Equivalent to this.concat(Stream.from(arguments))
 	*
 	* @param element to add
 	* @returns a new stream that will iterate through all elmeents of this stream, then the supplied element
 	*/
 	push() {
-		return this.concat(Stream.of(arguments));
+		return this.concat(Stream.from(arguments));
 	}
 
 
@@ -206,6 +216,20 @@ class BaseStream {
 		}
 		return map;		
 	}
+
+	/** Convert stream to object
+	*
+	* @param key {Function} function to convert item to key - defaults to [k,v]=>k
+	* @param value {Function} function to convert item to value - defaults to [k,v]=>v
+	* @return a new Map with specified keys and values from stream
+	*/
+	toObject(key = e=>e[0], value = e=>e[1]) {
+		let obj = {};
+		for (let item = this.next(); !item.done; item=this.next()) {
+			obj[key(item.value)]=value(item.value);
+		}
+		return obj;		
+	}
 }
 
 /** Stream clase that simply wraps another iterator.
@@ -245,12 +269,36 @@ class Stream extends BaseStream {
 	* 
 	* @param source iterable object to build a stream from.
 	*/
-	static of(source) {
+	static from(source) {
 		if (source[Symbol.iterator]) return new Stream(source[Symbol.iterator]());
 		throw new TypeError("Can't figure out how to iterate over ", source);
 	}
+
+	/** Build a stream from an iterable 
+	* 
+	* @param source object to build a stream from.
+	* @returns A stream of key/value pairs in the format [k,v] where k is the name of the attribute and v the value.
+	*/
+	static fromProperties(source) {
+		let keys = Object.keys(source)[Symbol.iterator]();
+		return new Stream( { next() { let { done, value } = keys.next(); return { done, value: [value, source[value]] } } } );
+	}
+
+	/** Build a stream from the given arguments.
+	*
+	* @param elements {...*} to convert into a stream.
+	* @param a stream returning each argument in turn.
+	*/
+	static of(...elements) {
+		return Stream.from(elements);
+	}
 }
 
+class EmptyStream extends BaseStream {
+	next() { return { done: true } }
+}
+
+Stream.EMPTY = new EmptyStream();
 
 /** Stream that filters items based on a predicate function
 *
@@ -350,6 +398,46 @@ class ConcatenatedStream extends Stream {
 		if (!current.done) return current;
 		current = this.iterator2.next();
 		return current;
+	}
+}
+
+/** Stream composed by obtaining a stream from each object in a stream
+*
+*/
+class FlattenedStream extends Stream {
+
+	/** Constructor
+	*
+	* @param iterator an interator over something that produces a stream
+	* @param stream_accessor function used to obtain a stream from each element returned by itereator
+	*/
+	constructor(iterator, stream_accessor = iterable => Stream.from(iterable)) {
+		super();
+		this.outer = iterator;
+		this.stream_accessor = stream_accessor;
+		this._nextOuter();
+	}
+
+	_nextOuter() {
+		let { done, value } = this.outer.next();
+		if (done)
+			this.inner = Stream.EMPTY;
+		else
+			this.inner = this.stream_accessor(value);
+	}
+
+	/** Get the next item in the stream.
+	*
+	* As per the iterable protocol, next returns the tuple { done, value } where done is true once there are no more
+	* items in the stream.
+	*
+	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
+	*/
+	next() {
+		let current = this.inner.next();
+		if (!current.done) return current;
+		this._nextOuter();
+		return this.inner.next();
 	}
 }
 
