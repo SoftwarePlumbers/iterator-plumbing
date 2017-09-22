@@ -139,6 +139,14 @@ describe('Stream', () => {
 		expect(Stream.from(TEST_DATA).push('77','88','99').toArray()).to.deep.equal(expected);
 	});
 
+	it('supports shift', ()=>{
+		let expected = Array.from(TEST_DATA);
+		let s = expected.shift();
+		let stream = Stream.from(TEST_DATA);
+		expect(stream.shift()).to.equal(s);
+		expect(stream.toArray()).to.deep.equal(expected);
+	});
+
 	it('supports some', ()=>{
 		expect(Stream.from(TEST_DATA).some(e => e === 13)).to.be.true;
 		expect(Stream.from(TEST_DATA).some(e => e === 6)).to.be.false;

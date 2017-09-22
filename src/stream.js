@@ -169,6 +169,16 @@ class BaseStream {
 		return value;
 	}
 
+
+	/** Get the first item in the stream 
+	* 
+	* @returns the first item in the stream, or undefined if none exists.
+	*/
+	shift() {
+		let item = this.next();
+		return (item.done) ? undefined : item.value;
+	}
+
 	/**
 	*
 	* @param begin index of first element in slice
