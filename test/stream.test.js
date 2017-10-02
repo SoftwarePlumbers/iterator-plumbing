@@ -176,4 +176,9 @@ describe('Stream', () => {
 		expect(stream.toArray()).to.deep.equal(TEST_ARR1);
 	});
 
+	it('converts entries to values', ()=>{
+		let stream = Stream.from(TEST_MAP1);
+		expect(stream.toValues()).to.deep.equal(TEST_MAP1.map(([k,v])=>v));		
+	});
+
 });

@@ -1,6 +1,6 @@
 {
   "name": "iterator-plumbing",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Tools for working with iterators",
   "main": "src/stream.js",
   "scripts": {

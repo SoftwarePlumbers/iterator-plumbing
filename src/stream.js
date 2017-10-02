@@ -213,6 +213,16 @@ class BaseStream {
 		return array;
 	}
 
+	/** Convert stream of key/value pairs to an array of values
+	*
+	* Equivalent to map(([k,v])=>v).toArray()
+	*
+	* @returns an array of simple values.
+	*/
+	toValues() {
+		return this.map(([k,v])=>v).toArray();
+	}
+
 	/** Convert stream to map
 	*
 	* @param key {Function} function to convert item to key - defaults to [k,v]=>k
