@@ -285,13 +285,15 @@ class Stream extends BaseStream {
 		return this.iterator.next();
 	}
 
-	/** Build a stream from an iterable 
+	/** Build a stream from an iterable
+	*
+	* If source is iterable, return a stream over items in source. Otherwise, return a stream with a single
+	* element, source. 
 	* 
-	* @param source iterable object to build a stream from.
+	* @param source object to build a stream from.
 	*/
 	static from(source) {
-		if (source[Symbol.iterator]) return new Stream(source[Symbol.iterator]());
-		throw new TypeError("Can't figure out how to iterate over ", source);
+		return (source[Symbol.iterator]) ? new Stream(source[Symbol.iterator]()) : Stream.of(source);
 	}
 
 	/** Build a stream from an iterable 
