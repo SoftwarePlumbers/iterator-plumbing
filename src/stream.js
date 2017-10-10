@@ -38,6 +38,33 @@
 * @returns {boolean} true if item matches criteria, false otherwise
 */
 
+/** @callback ForEachCallback
+* @param item {Object} item to process
+* @param [index] {number} index of current item in stream
+* @param [context] {object} context infromation (such as the collection iterated over)
+*/
+
+/** @callback MapFunction
+*
+* Map value in stream to some other value
+*
+* @param {Object} item - Item to evaluate
+* @param {number} index - index of item in stream
+* @param {Object} context - Context, such as the collection we are iterating over
+* @returns {Object} mapped value
+*/
+
+/** @callback Reducer
+*
+* Reduce value in stream to a single value
+*
+* @param {Object} accumulator - current value of accumulator
+* @param {Object} item - Item to evaluate
+* @param {number} index - index of item in stream
+* @param {Object} context - Context, such as the collection we are iterating over
+* @returns {Object} new value for accumulator
+*/
+
 /** Base stream clase that provides core stream operations.
 *
 * A stream is an Iterator (it implements next()) with bells on. Various utility methods are provided
@@ -83,7 +110,7 @@ class BaseStream {
 	/** Filter a stream
 	* 
 	* @param predicate {Predicate} predicate to select items from stream
-	* @param [context[ {Object} (optional) data to pass through to test function
+	* @param [context] {Object} (optional) data to pass through to test function
 	* @returns {BaseStream} a stream containing only those items from this stream for which predicate evaluates to true
 	*/
 	filter(predicate, context) {
@@ -105,9 +132,9 @@ class BaseStream {
 
 	/** Find the index of the first item in a stream for which the predicate evalues to true.
 	*
-	* @param predicate {Function} function to test items
-	* @param context (optional) data to pass through to test function
-	* @returns the index of first item in the stream for which predicate evaluates to true, or -1
+	* @param predicate {Predicate} function to test items
+	* @param [context] {Object} data to pass through to test function
+	* @returns {number} the index of first item in the stream for which predicate evaluates to true, or -1
 	*/
 	findIndex(predicate, context) {
 		let index = 0;
@@ -116,9 +143,13 @@ class BaseStream {
 		return -1;
 	}
 
-	/** Flatten a nested structure by iterating over the stream returned by stream_accessor for each item in this stream
-	* @param stream_accessor {Function} function that returns a stream given an object in this stream
-	* @returns stream that iterates over every object in every stream returned by stream_accessor.
+	/** Flatten a nested structure by iterating over the stream returned by stream_accessor for each item in this stream.
+	*
+	* If a stream accessor is not provided, an attempt will be made to use Stream.from(e) to retrieve a stream from
+	* each element e of this stream. This works fine if e is an {@link Iterable}.
+	*
+	* @param [stream_accessor] {Function} function that returns a stream given an object in this stream
+	* @returns {BaseStream} stream that iterates over every object in every stream returned by stream_accessor.
 	*/
 	flatten(stream_accessor) {
 		return new FlattenedStream(this, stream_accessor);
@@ -126,8 +157,8 @@ class BaseStream {
 
 	/** Execute callback for every element in stream
 	*
-	* @param callback {Function} function to execute
-	* @param concext passed through to predicate (could be the collection we are iterating over)
+	* @param callback {ForEachCallback} function to execute
+	* @param context {Object} context passed through to callback (could be the collection we are iterating over)
 	*/
 	forEach(callback, context) {
 		let index = 0;
@@ -138,8 +169,9 @@ class BaseStream {
 
 	/** Test to see if stream includes a given value
 	*
-	* @param item value to look for
-	* @param fromIndex index to start looking (defaults to 0)
+	* @param {Object} item value to look for
+	* @param [fromIndex=0] index to start looking (defaults to 0)
+	* @returns {boolean} true if an item found which is strictly equal to the parameter item
 	*/
 	includes(item, fromIndex = 0) {
 		return this.slice(fromIndex).find(e => e === item) !== undefined;
@@ -159,7 +191,7 @@ class BaseStream {
 	/** Join elements into a string with optional separator
 	* 
 	* @param separator {String} string to use as separator
-	* @returns all elements of stream joined into a string.
+	* @returns {String} all elements of stream joined into a string.
 	*/
 	join(separator) {
 		let { done, value } = this.next();
@@ -171,9 +203,9 @@ class BaseStream {
 
 	/** Apply a map operation to a stream.
 	*
-	* @param mapper {Function} map function 
-	* @param context Passed through to mapping function (could be the colllection we are iterating over)	
-	* @returns a stream that is the result of applying mapper to every element in this stream.
+	* @param mapper {MapFunction} map function 
+	* @param [context] {Object} context passed through to mapping function (could be the colllection we are iterating over)	
+	* @returns {BaseStream} a stream that is the result of applying mapper to every element in this stream.
 	*/
 	map(mapper,context) {
 		return new MappingStream(this, mapper, context);
@@ -183,21 +215,21 @@ class BaseStream {
 	*
 	* Equivalent to this.concat(Stream.from(arguments))
 	*
-	* @param element to add
-	* @returns a new stream that will iterate through all elmeents of this stream, then the supplied element
+	* @param {Object} element to add
+	* @returns {BaseStream} a new stream that will iterate through all elments of this stream, then the supplied element
 	*/
 	push() {
 		return this.concat(Stream.from(arguments));
 	}
 
 
-	/** Recuces a stream of values to a single object by repeatedly applying a function.
+	/** Reduces a stream of values to a single object by repeatedly applying a function.
 	*
-	* executes accumulator = callback(accumulator, element) for every element in the stream.
+	* executes accumulator = callback(accumulator, element, index, context) for every element in the stream.
 	*
-	* @param callback {Function} reduction function.
-	* @param value initial value of accumulator
-	* @param context Passed through to reduction function (could be the collection we are iterating over)
+	* @param callback {Reducer} reduction function.
+	* @param value {Object} initial value of accumulator
+	* @param [context] Passed through to reduction function (could be the collection we are iterating over)
 	* @returns the final value of the accumulator
 	*/
 	reduce(callback, value, context) {
@@ -209,20 +241,20 @@ class BaseStream {
 	}
 
 
-	/** Get the first item in the stream 
+	/** Get the first item in the stream. 
 	* 
-	* @returns the first item in the stream, or undefined if none exists.
+	* @returns {Object} the first item in the stream, or undefined if none exists.
 	*/
 	shift() {
 		let item = this.next();
 		return (item.done) ? undefined : item.value;
 	}
 
-	/**
+	/** Get a subset of data from the stream, throwing away other values.
 	*
-	* @param begin index of first element in slice
-	* @param index of first element after slice
-	* @param a stream containing a subset of elements 
+	* @param [begin = 0] {number} index of first element in slice
+	* @param [index] of first element after slice; by default all remaining elements
+	* @param {BaseStream} a stream containing a subset of elements 
 	*/
 	slice(begin = 0, end) {
 		if (begin < 0) throw new RangeError('begin must be > 0');
@@ -235,7 +267,8 @@ class BaseStream {
 
 	/** Find if some element in the stream matches the predicate.
 	*
-	* @param predicate {Function} function to test elements.
+	* @param predicate {Predicate} function to test elements.
+	* @returns {boolean} true if an element is found for which predicate evaluates to true.
 	*/
 	some(predicate) {
 		return this.find(predicate) != undefined;
@@ -244,7 +277,7 @@ class BaseStream {
 
 	/** Convert stream to array 
 	*
-	* @returns an array containing all elements in the stream.
+	* @returns {Array} an array containing all elements in the stream.
 	*/
 	toArray() {
 		let array = [];
@@ -252,11 +285,11 @@ class BaseStream {
 		return array;
 	}
 
-	/** Convert stream of key/value pairs to an array of values
+	/** Convert stream of key/value pairs to an array of values.
 	*
-	* Equivalent to map(([k,v])=>v).toArray()
+	* Equivalent to map(([k,v])=>v).toArray().
 	*
-	* @returns an array of simple values.
+	* @returns {Array} an array of simple values.
 	*/
 	toValues() {
 		return this.map(([k,v])=>v).toArray();
@@ -264,9 +297,9 @@ class BaseStream {
 
 	/** Convert stream to map
 	*
-	* @param key {Function} function to convert item to key - defaults to [k,v]=>k
-	* @param value {Function} function to convert item to value - defaults to [k,v]=>v
-	* @return a new Map with specified keys and values from stream
+	* @param [key] {Function} function to convert item to key - defaults to [k,v]=>k
+	* @param [value] {Function} function to convert item to value - defaults to [k,v]=>v
+	* @return {Map} a new Map with specified keys and values from stream
 	*/
 	toMap(key = e=>e[0], value = e=>e[1]) {
 		let map = new Map();
@@ -278,9 +311,9 @@ class BaseStream {
 
 	/** Convert stream to object
 	*
-	* @param key {Function} function to convert item to key - defaults to [k,v]=>k
-	* @param value {Function} function to convert item to value - defaults to [k,v]=>v
-	* @return a new Map with specified keys and values from stream
+	* @param [key] {Function} function to convert item to key - defaults to [k,v]=>k
+	* @param [value] {Function} function to convert item to value - defaults to [k,v]=>v
+	* @return {Object} a new object with specified property names and values from stream
 	*/
 	toObject(key = e=>e[0], value = e=>e[1]) {
 		let obj = {};
@@ -291,7 +324,7 @@ class BaseStream {
 	}
 }
 
-/** Stream clase that simply wraps another iterator.
+/** Stream class that simply wraps another iterator.
 *
 * A stream is an iterator (it implements next()) with bells on. Various utility methods are provided
 * to filter, map, concatenate, and generally work with streams. For convenience, these methods are
@@ -318,7 +351,7 @@ class Stream extends BaseStream {
 	* As per the iterable protocol, next returns the tuple { done, value } where done is true once there are no more
 	* items in the stream.
 	*
-	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
+	* @returns {IteratorValue} the next item (which is just the result of calling next on the iterator supplied in the constructor)
 	*/
 	next() {
 		return this.iterator.next();
@@ -326,19 +359,20 @@ class Stream extends BaseStream {
 
 	/** Build a stream from an iterable
 	*
-	* If source is iterable, return a stream over items in source. Otherwise, return a stream with a single
+	* If source is Iterable, return a stream over items in source. Otherwise, return a stream with a single
 	* element, source. 
 	* 
-	* @param source object to build a stream from.
+	* @param source {Iterable|Object} object to build a stream from.
+	* @returns {Stream} a new stream
 	*/
 	static from(source) {
 		return (source[Symbol.iterator]) ? new Stream(source[Symbol.iterator]()) : Stream.of(source);
 	}
 
-	/** Build a stream from an iterable 
+	/** Build a stream from an object 
 	* 
-	* @param source object to build a stream from.
-	* @returns A stream of key/value pairs in the format [k,v] where k is the name of the attribute and v the value.
+	* @param source {Object} object to build a stream from.
+	* @returns {Stream<Entry>} A stream of key/value pairs in the format [k,v] where k is the name of the attribute and v the value.
 	*/
 	static fromProperties(source) {
 		let keys = Object.keys(source)[Symbol.iterator]();
@@ -348,22 +382,30 @@ class Stream extends BaseStream {
 	/** Build a stream from the given arguments.
 	*
 	* @param elements {...*} to convert into a stream.
-	* @param a stream returning each argument in turn.
+	* @param {Stream} a stream returning each argument in turn.
 	*/
 	static of(...elements) {
 		return Stream.from(elements);
 	}
+
+	/** an empty stream
+	*/
+	static get EMPTY() {
+		return new EmptyStream();
+	}
 }
 
+/** @private */
 class EmptyStream extends BaseStream {
 	next() { return { done: true } }
 }
 
-Stream.EMPTY = new EmptyStream();
 
 /** Stream that filters items based on a predicate function
 *
 * Stream will only return items for which predicate function evaluates to true.
+*
+* @private
 */
 class FilterStream extends BaseStream {
 
@@ -398,6 +440,7 @@ class FilterStream extends BaseStream {
 }
 
 /** Stream that applies a function to transform values supplied by some other stream or iterator.
+* @private
 */
 class MappingStream extends BaseStream {
 
@@ -432,6 +475,7 @@ class MappingStream extends BaseStream {
 /** Stream composed of two other streams.
 *
 * Resulting stream will return all elements from the first stream followed by all elements from the second
+* @private
 *
 */
 class ConcatenatedStream extends Stream {
@@ -464,6 +508,7 @@ class ConcatenatedStream extends Stream {
 
 /** Stream composed by obtaining a stream from each object in a stream
 *
+* @private
 */
 class FlattenedStream extends Stream {
 
