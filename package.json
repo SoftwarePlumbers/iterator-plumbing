@@ -2,7 +2,7 @@
   "name": "iterator-plumbing",
   "version": "1.0.5",
   "description": "Tools for working with iterators",
-  "main": "src/stream.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "mocha",
     "docs": "jsdoc -c ./jsdoc.conf -d build/docs -t ./node_modules/ink-docstrap/template README.md src/*.js",
@@ -17,7 +17,8 @@
     "stream",
     "map",
     "reduce",
-    "filter"
+    "filter",
+    "asynchronous"
   ],
   "author": "Jonathan Essex",
   "license": "SEE LICENSE IN LICENSE",

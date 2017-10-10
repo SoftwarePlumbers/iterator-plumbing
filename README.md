@@ -1,6 +1,6 @@
 # ![Software Plumbers](http://docs.softwareplumbers.com/common/img/SquareIdent-160.png) Iterator Plumbing
 
-Iterator utilities, providing many standard array functions without the neeed to create an array.
+Synchronous and Asynchronous Iterator utilities, providing many standard array functions without the neeed to create an array.
 
 ## Example
 
@@ -11,6 +11,13 @@ let result = stream.map(a=>a*7).filter(a=>a%2===0).slice(2,4).join(', ')
 ```
 
 and result should equal '42, 56'. No itermediate arrays will be created; pipeline is typically more efficient than using the equivalent array methods.
+
+## Asynchronous Streams
+
+For i/o operations we may also want to work with promises. Accordingly, we support a modified version of the iterator 
+protocol where next() returns a Promise that resolves to `{ done, value }` as opposed to directly returning it. Pipelines
+such as the above example will work unchanged on an asynchronous stream with th exception that terminals (such as join)
+return a Promise rather than a simple value.
 
 For the latest API documentation see [The Software Plumbers Site](http://docs.softwareplumbers.com/iterator-plumbing/master)
 

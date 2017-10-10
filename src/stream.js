@@ -1,8 +1,46 @@
 'use strict';
 
+/** @typedef {Object} IteratorValue
+*
+* An item returned by an iterator.
+*
+* @property done {boolean} - true if iterator has no more values
+* @property value {Object} - a value (from some parent collection of values)
+*/
+
+/** @typedef {Object} Iterator
+*
+* An object returning successive values from some underlying collection.
+* 
+* @property next {Function} return next item as an {@link IteratorValue}
+*/
+
+
+/** @typedef {Object} Iterable
+*
+* Object that can be iterated over
+*
+* @property Symbol.iterator {Function} return an {@link Iterator} over items in this collection 
+*/
+
+/** @typedef {Array} Entry
+*
+* A key/value pair [k,v] represeting a logical mapping between the key and the value.
+*/
+
+/** @callback Predicate
+*
+* Evaluate value in stream against some criteria.
+*
+* @param {Object} item - Item to evaluate
+* @param {number} index - index of item in stream
+* @param {Object} context - Context, such as the collection we are iterating over
+* @returns {boolean} true if item matches criteria, false otherwise
+*/
+
 /** Base stream clase that provides core stream operations.
 *
-* A stream is an iterator (it implements next()) with bells on. Various utility methods are provided
+* A stream is an Iterator (it implements next()) with bells on. Various utility methods are provided
 * to filter, map, concatenate, and generally work with streams. For convenience, these methods are
 * based on the methods already available in a javascript array, so the stream API can often be used
 * as a drop-in replacement. In many cases the lazy nature of the stream API (and avoidance of array copies)
@@ -13,8 +51,8 @@ class BaseStream {
 
 	/** Concatenate this stream with another stream (or an iterator)
 	*
-	* @param iterator Stream or iterator to concatenate
-	* @return a new stream that iterates over all items in this stream, then all items in the supplied iterator
+	* @param iterator {Iterator<T>} - Stream or iterator to concatenate
+	* @return {BaseStream<T>} a new stream that iterates over all items in this stream, then all items in the supplied iterator
 	*/
 	concat(iterator) {
 		return new ConcatenatedStream(this, iterator);
@@ -23,6 +61,7 @@ class BaseStream {
 	/** Create a stream of entries.
 	*
 	* an 'entry' is a key/value pair - the key in this case is the position of the item in the stream.
+	* @return {BaseStream<Entry>}
 	*/
 	entries() {
 		return this.map((e,i)=>[i,e]);
@@ -30,9 +69,9 @@ class BaseStream {
 
 	/** Check if predicate evaluates to true for all elements in stream 
 	*
-	* @param predicate to check 
-	* @param concext passed through to predicate (could be the collection we are iterating over)
-	* @returns true if predicate evaluates to true for every element in the stream
+	* @param predicate {Predicate} - to check 
+	* @param [context] {Object} - passed through to predicate (could be the collection we are iterating over)
+	* @returns {boolean} true if predicate evaluates to true for every element in the stream
 	*/
 	every(predicate, context) {
 		let index = 0;
@@ -43,9 +82,9 @@ class BaseStream {
 
 	/** Filter a stream
 	* 
-	* @param predicate {Function} predicate to select items from stream
-	* @param context (optional) data to pass through to test function
-	* @returns a stream containing only those items from this stream for which predicate evaluates to true
+	* @param predicate {Predicate} predicate to select items from stream
+	* @param [context[ {Object} (optional) data to pass through to test function
+	* @returns {BaseStream} a stream containing only those items from this stream for which predicate evaluates to true
 	*/
 	filter(predicate, context) {
 		return new FilterStream(this, predicate, context);
@@ -53,9 +92,9 @@ class BaseStream {
 
 	/** Find the first item in a stream for which the predicate evalues to true.
 	*
-	* @param predicate {Function} function to test items
-	* @param context (optional) data to pass through to test function
-	* @returns the first item in the stream for which predicate evaluates to true
+	* @param predicate {Predicate} function to test items
+	* @param [context] {Object} data to pass through to test function
+	* @returns {Object} the first item in the stream for which predicate evaluates to true
 	*/
 	find(predicate, context) {
 		let index = 0;
