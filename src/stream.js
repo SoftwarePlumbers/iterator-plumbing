@@ -33,8 +33,8 @@
 * Evaluate value in stream against some criteria.
 *
 * @param {Object} item - Item to evaluate
-* @param {number} index - index of item in stream
-* @param {Object} context - Context, such as the collection we are iterating over
+* @param {number} [index] - index of item in stream
+* @param {Object} [context] - Context, such as the collection we are iterating over
 * @returns {boolean} true if item matches criteria, false otherwise
 */
 
@@ -49,8 +49,8 @@
 * Map value in stream to some other value
 *
 * @param {Object} item - Item to evaluate
-* @param {number} index - index of item in stream
-* @param {Object} context - Context, such as the collection we are iterating over
+* @param {number} [index] - index of item in stream
+* @param {Object} [context] - Context, such as the collection we are iterating over
 * @returns {Object} mapped value
 */
 
@@ -60,8 +60,8 @@
 *
 * @param {Object} accumulator - current value of accumulator
 * @param {Object} item - Item to evaluate
-* @param {number} index - index of item in stream
-* @param {Object} context - Context, such as the collection we are iterating over
+* @param {number} [index] - index of item in stream
+* @param {Object} [context] - Context, such as the collection we are iterating over
 * @returns {Object} new value for accumulator
 */
 
@@ -177,11 +177,11 @@ class BaseStream {
 		return this.slice(fromIndex).find(e => e === item) !== undefined;
 	}
 
-	/** Find the index of the first item in a stream for which the predicate evalues to true.
+	/** Find the index of the first item in a stream strictly equal to the given item
 	*
-	* @param item value to look for
-	* @param fromIndex index to start looking (defaults to 0)
-	* @returns the index of first item in the stream matching item, or -1
+	* @param item {Object} value to look for
+	* @param [fromIndex=0] {number} index to start looking (defaults to 0)
+	* @returns {number} the index of first item in the stream matching item, or -1
 	*/
 	indexOf(item, fromIndex = 0) {
 		let search = this.slice(fromIndex).findIndex(e => e === item);
@@ -254,7 +254,7 @@ class BaseStream {
 	*
 	* @param [begin = 0] {number} index of first element in slice
 	* @param [index] of first element after slice; by default all remaining elements
-	* @param {BaseStream} a stream containing a subset of elements 
+	* @returns {BaseStream} a stream containing a subset of elements 
 	*/
 	slice(begin = 0, end) {
 		if (begin < 0) throw new RangeError('begin must be > 0');
@@ -332,6 +332,7 @@ class BaseStream {
 * as a drop-in replacement. In many cases the lazy nature of the stream API (and avoidance of array copies)
 * will make the updated code more efficient than using simple arrays.
 *
+* @extends BaseStream
 */
 class Stream extends BaseStream {
 
@@ -382,7 +383,7 @@ class Stream extends BaseStream {
 	/** Build a stream from the given arguments.
 	*
 	* @param elements {...*} to convert into a stream.
-	* @param {Stream} a stream returning each argument in turn.
+	* @returns {Stream} a stream returning each argument in turn.
 	*/
 	static of(...elements) {
 		return Stream.from(elements);

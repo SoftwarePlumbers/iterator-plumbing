@@ -1,7 +1,7 @@
 const chai = require('chai');
 const promises = require('chai-as-promised');
 const expect = chai.expect;
-const AsyncStream = require('../src/asyncstream');
+const { AsyncStream } = require('../src');
 const Stream = require('../src/stream');
 
 chai.use(promises);

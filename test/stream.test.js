@@ -1,6 +1,6 @@
 const chai = require('chai')
 const expect = chai.expect;
-const Stream = require('../src/stream');
+const { Stream } = require('../src');
 
 const TEST_DATA = [ 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 ];
 const TEST_MAP1 = [ [ 'foo', 'bar' ], [ 'dinkum', 'thinkum'], ['wyoming','knot'], ['dick','seaton'] ];
