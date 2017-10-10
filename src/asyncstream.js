@@ -9,15 +9,15 @@
 * will make the updated code more efficient than using simple arrays.
 *
 */
-class BaseStream {
+class BaseAsyncStream {
 
 	/** Concatenate this stream with another stream (or an iterator)
 	*
-	* @param iterator Stream or iterator to concatenate
+	* @param iterator AsyncStream to concatenate
 	* @return a new stream that iterates over all items in this stream, then all items in the supplied iterator
 	*/
 	concat(iterator) {
-		return new ConcatenatedStream(this, iterator);
+		return new ConcatenatedAsyncStream(this, iterator);
 	}
 
 	/** Create a stream of entries.
@@ -32,13 +32,20 @@ class BaseStream {
 	*
 	* @param predicate to check 
 	* @param concext passed through to predicate (could be the collection we are iterating over)
-	* @returns true if predicate evaluates to true for every element in the stream
+	* @returns {Promise} resolves true if predicate evaluates to true for every element in the stream
 	*/
 	every(predicate, context) {
 		let index = 0;
-		let result = true;
-		for (let item = this.next(); !item.done && result; item=this.next()) result = predicate(item.value, index++, context);		
-		return result;
+
+		let check = ({done, value}) => {
+			if (done) return true;
+			if (predicate(value, index++, context)) {
+				return this.next().then(check);
+			}
+			return false;
+		}
+
+		return this.next().then(check);
 	}	
 
 	/** Filter a stream
@@ -48,7 +55,7 @@ class BaseStream {
 	* @returns a stream containing only those items from this stream for which predicate evaluates to true
 	*/
 	filter(predicate, context) {
-		return new FilterStream(this, predicate, context);
+		return new FilterAsyncStream(this, predicate, context);
 	}
 
 	/** Find the first item in a stream for which the predicate evalues to true.
@@ -59,9 +66,14 @@ class BaseStream {
 	*/
 	find(predicate, context) {
 		let index = 0;
-		for (let item = this.next(); !item.done; item=this.next()) 
-			if (predicate(item.value, index++, context)) return item.value;
-		return undefined;
+
+		let check = ({done, value}) => {
+			if (done) return undefined;
+			if (predicate(value, index++, context)) return value;
+			return this.next().then(check);
+		}
+
+		return this.next().then(check);
 	}
 
 	/** Find the index of the first item in a stream for which the predicate evalues to true.
@@ -72,9 +84,15 @@ class BaseStream {
 	*/
 	findIndex(predicate, context) {
 		let index = 0;
-		for (let item = this.next(); !item.done; item=this.next()) 
-			if (predicate(item.value, index, context)) return index; else index++;
-		return -1;
+
+		let check = ({done, value}) => {
+			if (done) return -1;
+			if (predicate(value, index, context)) return index;
+			index++;
+			return this.next().then(check);
+		}
+
+		return this.next().then(check);
 	}
 
 	/** Flatten a nested structure by iterating over the stream returned by stream_accessor for each item in this stream
@@ -82,19 +100,28 @@ class BaseStream {
 	* @returns stream that iterates over every object in every stream returned by stream_accessor.
 	*/
 	flatten(stream_accessor) {
-		return new FlattenedStream(this, stream_accessor);
+		return new FlattenedAsyncStream(this, stream_accessor);
 	}
 
 	/** Execute callback for every element in stream
 	*
 	* @param callback {Function} function to execute
-	* @param concext passed through to predicate (could be the collection we are iterating over)
+	* @param context passed through to predicate (could be the collection we are iterating over)
+	* @@returns Promise resolved one all callbacks have been executed.
 	*/
 	forEach(callback, context) {
 		let index = 0;
-		for (let item = this.next(); !item.done; item=this.next()) {
-			callback(item.value, index++, context);
-		}		
+
+		let execute = ({done, value}) => {
+			if (!done) {
+				index++;
+				callback(value, index, context);
+				return this.next().then(execute);
+			}
+			return {done,value};
+		}
+
+		return this.next().then(execute);
 	}	
 
 	/** Test to see if stream includes a given value
@@ -103,7 +130,7 @@ class BaseStream {
 	* @param fromIndex index to start looking (defaults to 0)
 	*/
 	includes(item, fromIndex = 0) {
-		return this.slice(fromIndex).find(e => e === item) !== undefined;
+		return this.slice(fromIndex).find(e => e === item).then(e => e !== undefined);
 	}
 
 	/** Find the index of the first item in a stream for which the predicate evalues to true.
@@ -113,8 +140,9 @@ class BaseStream {
 	* @returns the index of first item in the stream matching item, or -1
 	*/
 	indexOf(item, fromIndex = 0) {
-		let search = this.slice(fromIndex).findIndex(e => e === item);
-		return search < 0 ? -1 : search + fromIndex;
+		return this.slice(fromIndex)
+			.findIndex(e => e === item)
+			.then(search => search < 0 ? -1 : search + fromIndex);
 	}
 
 	/** Join elements into a string with optional separator
@@ -123,11 +151,11 @@ class BaseStream {
 	* @returns all elements of stream joined into a string.
 	*/
 	join(separator) {
-		let { done, value } = this.next();
-		if (done) return "";
-		let result = new String(value);
-		this.forEach(e => { result+=separator; result+=e; });
-		return result;
+		return this.next().then( ({done,value})=>{
+			if (done) return "";
+			let result = new String(value);
+			return this.forEach(e => { result+=separator; result+=e; }).then(()=>result);
+		});
 	}
 
 	/** Apply a map operation to a stream.
@@ -137,18 +165,18 @@ class BaseStream {
 	* @returns a stream that is the result of applying mapper to every element in this stream.
 	*/
 	map(mapper,context) {
-		return new MappingStream(this, mapper, context);
+		return new MappingAsyncStream(this, mapper, context);
 	}
 
 	/** Add an element to a stream
 	*
 	* Equivalent to this.concat(Stream.from(arguments))
 	*
-	* @param element to add
+	* @param {Promise} element to add
 	* @returns a new stream that will iterate through all elmeents of this stream, then the supplied element
 	*/
 	push() {
-		return this.concat(Stream.from(arguments));
+		return this.concat(AsyncStream.from(arguments));
 	}
 
 
@@ -157,16 +185,20 @@ class BaseStream {
 	* executes accumulator = callback(accumulator, element) for every element in the stream.
 	*
 	* @param callback {Function} reduction function.
-	* @param value initial value of accumulator
+	* @param accumulator initial value of accumulator
 	* @param context Passed through to reduction function (could be the collection we are iterating over)
 	* @returns the final value of the accumulator
 	*/
-	reduce(callback, value, context) {
+	reduce(callback, accumulator, context) {
 		let index = 0;
-		for (let item = this.next(); !item.done; item=this.next()) {
-			value = callback(value, item.value,  index++, context);
-		}		
-		return value;
+
+		let execute = ({done, value}) => {
+			if (done) return accumulator;
+			accumulator = callback(accumulator, value, index++, context);
+			return this.next().then(execute);
+		}
+
+		return this.next().then(execute);
 	}
 
 
@@ -175,8 +207,7 @@ class BaseStream {
 	* @returns the first item in the stream, or undefined if none exists.
 	*/
 	shift() {
-		let item = this.next();
-		return (item.done) ? undefined : item.value;
+		return this.next().then(({done, value}) => done ? undefined : value);
 	}
 
 	/**
@@ -199,7 +230,7 @@ class BaseStream {
 	* @param predicate {Function} function to test elements.
 	*/
 	some(predicate) {
-		return this.find(predicate) != undefined;
+		return this.find(predicate).then(e => e != undefined);
 	}
 
 
@@ -209,8 +240,7 @@ class BaseStream {
 	*/
 	toArray() {
 		let array = [];
-		for (let item = this.next(); !item.done; item=this.next()) array.push(item.value);
-		return array;
+		return this.forEach(e => array.push(e)).then(() => array);
 	}
 
 	/** Convert stream of key/value pairs to an array of values
@@ -231,10 +261,7 @@ class BaseStream {
 	*/
 	toMap(key = e=>e[0], value = e=>e[1]) {
 		let map = new Map();
-		for (let item = this.next(); !item.done; item=this.next()) {
-			map.set(key(item.value),value(item.value));
-		}
-		return map;		
+		return this.forEach(e => map.set(key(e), value(e))).then(()=>map);
 	}
 
 	/** Convert stream to object
@@ -245,10 +272,7 @@ class BaseStream {
 	*/
 	toObject(key = e=>e[0], value = e=>e[1]) {
 		let obj = {};
-		for (let item = this.next(); !item.done; item=this.next()) {
-			obj[key(item.value)]=value(item.value);
-		}
-		return obj;		
+		return this.forEach(e => obj[key(e)] = value(e)).then(()=>obj);
 	}
 }
 
@@ -261,7 +285,7 @@ class BaseStream {
 * will make the updated code more efficient than using simple arrays.
 *
 */
-class Stream extends BaseStream {
+class AsyncStream extends BaseAsyncStream {
 
 	/** Build a stream from an iterator.
 	*
@@ -290,43 +314,36 @@ class Stream extends BaseStream {
 	* If source is iterable, return a stream over items in source. Otherwise, return a stream with a single
 	* element, source. 
 	* 
-	* @param source object to build a stream from.
+	* @param iterator over promises to build a stream from.
 	*/
 	static from(source) {
-		return (source[Symbol.iterator]) ? new Stream(source[Symbol.iterator]()) : Stream.of(source);
+		if (Symbol.iterator in source) {
+			let iterator = source[Symbol.iterator]();
+			return new AsyncStream({ next: ()=>Promise.resolve(iterator.next())});
+		}
+		return Stream.of(source);
 	}
 
-	/** Build a stream from an iterable 
-	* 
-	* @param source object to build a stream from.
-	* @returns A stream of key/value pairs in the format [k,v] where k is the name of the attribute and v the value.
-	*/
-	static fromProperties(source) {
-		let keys = Object.keys(source)[Symbol.iterator]();
-		return new Stream( { next() { let { done, value } = keys.next(); return { done, value: [value, source[value]] } } } );
-	}
-
-	/** Build a stream from the given arguments.
-	*
-	* @param elements {...*} to convert into a stream.
-	* @param a stream returning each argument in turn.
-	*/
 	static of(...elements) {
-		return Stream.from(elements);
+		return AsyncStream.from(elements);
 	}
+
+	static get EMPTY() {
+		return new EmptyStream();
+	}
+
 }
 
-class EmptyStream extends BaseStream {
-	next() { return { done: true } }
+class EmptyStream extends BaseAsyncStream {
+	next() { return Promise.resolve({ done: true }); }
 }
 
-Stream.EMPTY = new EmptyStream();
 
 /** Stream that filters items based on a predicate function
 *
 * Stream will only return items for which predicate function evaluates to true.
 */
-class FilterStream extends BaseStream {
+class FilterAsyncStream extends BaseAsyncStream {
 
 	/** Construct a new filtered stream.
 	*
@@ -350,17 +367,16 @@ class FilterStream extends BaseStream {
 	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
 	*/
 	next() {
-		let current = this.iterator.next();
-		while (!current.done && !this.predicate(current.value, this.index++)) {
-			current = this.iterator.next();
-		}
-		return current;
+		return this.iterator.next().then(({done,value})=>{
+			if (done || this.predicate(value, this.index++, this.context)) return { done, value };
+			return this.next();
+		});
 	}
 }
 
 /** Stream that applies a function to transform values supplied by some other stream or iterator.
 */
-class MappingStream extends BaseStream {
+class MappingAsyncStream extends BaseAsyncStream {
 
 	/** Constructor
 	* 
@@ -384,9 +400,7 @@ class MappingStream extends BaseStream {
 	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
 	*/
 	next() {
-		let { done, value } = this.iterator.next();
-		if (done) return { done };
-		return { done, value: this.mapper(value, this.index++, this.context) };
+		return this.iterator.next().then(({done,value})=>({ done, value : !done && this.mapper(value, this.index++, this.context) }));
 	}
 }
 
@@ -395,7 +409,7 @@ class MappingStream extends BaseStream {
 * Resulting stream will return all elements from the first stream followed by all elements from the second
 *
 */
-class ConcatenatedStream extends Stream {
+class ConcatenatedAsyncStream extends BaseAsyncStream {
 
 	/** Constructor
 	*
@@ -416,36 +430,25 @@ class ConcatenatedStream extends Stream {
 	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
 	*/
 	next() {
-		let current = this.iterator1.next();
-		if (!current.done) return current;
-		current = this.iterator2.next();
-		return current;
+		return this.iterator1.next()
+			.then(({done,value}) => done ? this.iterator2.next() : { done, value });
 	}
 }
 
 /** Stream composed by obtaining a stream from each object in a stream
 *
 */
-class FlattenedStream extends Stream {
+class FlattenedAsyncStream extends BaseAsyncStream {
 
 	/** Constructor
 	*
 	* @param iterator an interator over something that produces a stream
 	* @param stream_accessor function used to obtain a stream from each element returned by itereator
 	*/
-	constructor(iterator, stream_accessor = iterable => Stream.from(iterable)) {
+	constructor(iterator, stream_accessor = iterable => AsyncStream.from(iterable)) {
 		super();
-		this.outer = iterator;
-		this.stream_accessor = stream_accessor;
-		this._nextOuter();
-	}
-
-	_nextOuter() {
-		let { done, value } = this.outer.next();
-		if (done)
-			this.inner = Stream.EMPTY;
-		else
-			this.inner = this.stream_accessor(value);
+		this.outer = iterator.map(stream_accessor);
+		this.outer_value = this.outer.next();
 	}
 
 	/** Get the next item in the stream.
@@ -453,15 +456,21 @@ class FlattenedStream extends Stream {
 	* As per the iterable protocol, next returns the tuple { done, value } where done is true once there are no more
 	* items in the stream.
 	*
-	* @returns the next item (which is just the result of calling next on the iterator supplied in the constructor)
+	* @returns the next item 
 	*/
 	next() {
-		let current = this.inner.next();
-		if (!current.done) return current;
-		//TODO: I think there is a bug here to do with handling empty inner collections
-		this._nextOuter();
-		return this.inner.next();
+		return this.outer_value.then( outer_value =>  {
+			if (outer_value.done) return { done: true } 
+			return outer_value.value.next()
+				.then(({done,value}) => {
+					if (done) {
+						this.outer_value = this.outer.next();
+						return this.next();
+					}
+					return { done, value };
+				})
+		});
 	}
 }
 
-module.exports = Stream;
+module.exports = AsyncStream;
