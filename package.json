@@ -1,6 +1,6 @@
 {
   "name": "iterator-plumbing",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Tools for working with iterators",
   "main": "src/index.js",
   "scripts": {
@@ -33,5 +33,7 @@
     "jsdoc": "^3.5.4",
     "mocha": "^3.5.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "tristate-logic": "^1.0.4"
+  }
 }

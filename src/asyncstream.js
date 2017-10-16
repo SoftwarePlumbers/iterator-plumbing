@@ -1,5 +1,7 @@
 'use strict';
 
+const { and, or } = require('tristate-logic');
+
 /** @typedef {Object} AsyncIterator
 *
 * An object returning successive values from some underlying collection.
@@ -36,24 +38,23 @@ class BaseAsyncStream {
 		return this.map((e,i)=>[i,e]);
 	}
 
-	/** Check if predicate evaluates to true for all elements in stream 
+	/** Check if predicate evaluates to true for all elements in stream.
+	*
+	* Note, unlike `every` in `Array`, tri-state logic is used. A predicate that evaluates to null is treated
+	* as 'value unkown'. Unknown values are not simply treated as false; `every` will return true if
+	* _every_ predicate evaluates to 'true', 'false' if any predicate evaluates to false, and, 'null' if
+	* predicates evaluate to any mixture of 'true' and 'null'. This should make no difference to any code
+	* written assuming that null and false are equivalent, but allows us to use 'every' for some additional
+	* real-world cases that would otherwise get very messy.
 	*
 	* @param predicate {Predicate} - to check 
 	* @param [context] {Object} - passed through to predicate (could be the collection we are iterating over)
 	* @returns {Promise<boolean>} resolves to true if predicate evaluates to true for every element in the stream
 	*/
 	every(predicate, context) {
-		let index = 0;
-
-		let check = ({done, value}) => {
-			if (done) return true;
-			if (predicate(value, index++, context)) {
-				return this.next().then(check);
-			}
-			return false;
-		}
-
-		return this.next().then(check);
+		const reduction = (accumulator, item, i, ctx)=>and(accumulator, predicate(item, i, ctx));
+		const condition = accumulator=>accumulator !== false;
+		return this.reduce(reduction, true, condition, context);
 	}	
 
 	/** Filter a stream
@@ -193,21 +194,22 @@ class BaseAsyncStream {
 		return this.concat(AsyncStream.from(arguments));
 	}
 
-
 	/** Reduces a stream of values to a single object by repeatedly applying a function.
 	*
-	* executes accumulator = callback(accumulator, element, index, context) for every element in the stream.
+	* executes accumulator = callback(accumulator, element, index, context) for every element in the stream, or until
+	* condition(accumulator, index, element) returns false.
 	*
 	* @param callback {Reducer} reduction function.
-	* @param value {Object} initial value of accumulator
+	* @param accumulator {Object} initial value of accumulator
+	* @param [condition] {Predicate} condition for loop
 	* @param [context] Passed through to reduction function (could be the collection we are iterating over)
 	* @returns {Promise} resolves to the final value of the accumulator
 	*/
-	reduce(callback, accumulator, context) {
+	reduce(callback, accumulator, condition = ()=>true, context) {
 		let index = 0;
 
 		let execute = ({done, value}) => {
-			if (done) return accumulator;
+			if (done || !condition(accumulator, index, value)) return accumulator;
 			accumulator = callback(accumulator, value, index++, context);
 			return this.next().then(execute);
 		}
@@ -241,13 +243,22 @@ class BaseAsyncStream {
 
 	/** Find if some element in the stream matches the predicate.
 	*
+	* Note, unlike `some` in `Array`, tri-state logic is used. A predicate that evaluates to null is treated
+	* as 'value unkown'. Unknown values are not simply treated as false; `some` will return true if
+	* any predicate evaluates to 'true', 'false' if every predicate evaluates to false, and, 'null' if
+	* predicates evaluate to any mixture of 'false' and 'null'. This should make no difference to any code
+	* written assuming that null and false are equivalent, but allows us to use `some` for additional
+	* real-world cases that would otherwise get very messy.
+	*
 	* @param predicate {Predicate} function to test elements.
+	* @param [context] {Object} context, possibly the collection we are iterating over
 	* @returns {Promise<boolean>} resolves to true if an element is found for which predicate evaluates to true.
 	*/
-	some(predicate) {
-		return this.find(predicate).then(e => e != undefined);
+	some(predicate, context) {
+		const reduction = (accumulator, item, i, ctx)=>or(accumulator, predicate(item, i, ctx));
+		const condition = accumulator=>accumulator !== true;
+		return this.reduce(reduction, false, condition, context);
 	}
-
 
 	/** Convert stream to array 
 	*

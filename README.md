@@ -30,7 +30,7 @@ Beta. It seems functional, and the unit tests pass.
 There's lots of good ones out there. However, features of this one that may appeal:
 
 1. No transpilers, written in straight javascript
-2. No dependencies
+2. Trivial dependencies (tristate-logic is developed by same author)
 3. API is so similar to Array that in many cases a stream pipeline can simply replace existing array-based code
 4. Clean class-based implementation
 
